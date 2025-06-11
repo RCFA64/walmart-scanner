@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>📦 Scan a UPC</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 1rem;
+    }
+    #scanner-container {
+      width: 100%;
+      max-width: 400px;
+      height: 300px;                /* give it some height! */
+      margin: 1rem auto;
+      background: #000;             /* black behind the video */
+      position: relative;
+      overflow: hidden;
+    }
+    #output {
+      white-space: pre-wrap;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #333;
+    }
+    video, canvas {
+      /* make sure the video/canvas fill the container */
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Scan a UPC</h1>
+  <div id="scanner-container"></div>
+  <div id="output">Point your camera at a barcode…</div>
+
+  <!-- barcode engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+  <script>
+    // initialize QuaggaJS
+    Quagga.init({
+      inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: document.getElementById('scanner-container'),
+        constraints: { facingMode: "environment" }
+      },
+      decoder: {
+        readers: ["upc_reader","ean_reader","upc_e_reader"]
+      }
+    }, err => {
+      if (err) {
+        console.error(err);
+        document.getElementById('output').textContent = '⚠️ Camera init error';
+        return;
+      }
+      Quagga.start();
+    });
+
+    Quagga.onDetected(async ({ codeResult }) => {
+      const upc = codeResult.code;
+      Quagga.stop();
+      document.getElementById('output').textContent = `UPC scanned: ${upc}\nLooking up…`;
+
+      try {
+        const res = await fetch(`/api/product?upc=${upc}`);
+        const json = await res.json();
+        document.getElementById('output').textContent = JSON.stringify(json, null, 2);
+      } catch (e) {
+        console.error(e);
+        document.getElementById('output').textContent = '❌ Error fetching product data';
+      }
+    });
+  </script>
+</body>
+</html>
